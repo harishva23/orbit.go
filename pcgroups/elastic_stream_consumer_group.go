@@ -84,7 +84,7 @@ func GetElasticConsumerGroupConfig(ctx context.Context, js jetstream.JetStream, 
 }
 
 // ElasticConsume is the function that will start a go routine to consume messages from the stream (when active)
-func ElasticConsume(ctx context.Context, js jetstream.JetStream, streamName string, consumerGroupName string, memberName string, messageHandler func(msg jetstream.Msg), config jetstream.ConsumerConfig) (ConsumerGroupConsumeContext, error) {
+func ElasticConsume(ctx context.Context, js jetstream.JetStream, streamName string, consumerGroupName string, memberName string, messageHandler func(msg jetstream.Msg), config jetstream.ConsumerConfig, consumePullOpts ...jetstream.PullConsumeOpt) (ConsumerGroupConsumeContext, error) {
 	var err error
 
 	if messageHandler == nil {
@@ -136,7 +136,7 @@ func ElasticConsume(ctx context.Context, js jetstream.JetStream, streamName stri
 	}
 
 	if instance.Config.IsInMembership(memberName) {
-		instance.joinMemberConsumer()
+		instance.joinMemberConsumer(consumePullOpts...)
 	}
 
 	instance.doneChan = make(chan error, 1)
@@ -704,7 +704,7 @@ func (instance *ElasticConsumerGroupConsumerInstance) consumerCallback(msg jetst
 }
 
 // joinMemberConsumer attempts to create (which is idempotent for a given consumer configuration) the member's consumer if the member is in the current list of members and if successful, starts consuming messages from it
-func (instance *ElasticConsumerGroupConsumerInstance) joinMemberConsumer() {
+func (instance *ElasticConsumerGroupConsumerInstance) joinMemberConsumer(consumePullOpts ...jetstream.PullConsumeOpt) {
 	var err error
 	ctx := context.Background()
 
@@ -739,7 +739,7 @@ func (instance *ElasticConsumerGroupConsumerInstance) joinMemberConsumer() {
 		return
 	}
 
-	instance.startConsuming()
+	instance.startConsuming(consumePullOpts...)
 }
 
 // tryCreateConsumer will create or replace the jetstream consumer for this instance
@@ -764,10 +764,10 @@ func (instance *ElasticConsumerGroupConsumerInstance) tryCreateConsumer(ctx cont
 }
 
 // Start to actively consume (pull) messages from the consumer
-func (instance *ElasticConsumerGroupConsumerInstance) startConsuming() {
+func (instance *ElasticConsumerGroupConsumerInstance) startConsuming(consumePullOpts ...jetstream.PullConsumeOpt) {
 	var err error
-
-	instance.consumerConsumeContext, err = instance.consumer.Consume(instance.consumerCallback, jetstream.PullExpiry(max(instance.consumerUserConfig.AckWait/pullTimeoutDivider, minPullExpiryPinnedTTL)), jetstream.PullPriorityGroup(priorityGroupName))
+	consumePullOpts = append(consumePullOpts, jetstream.PullExpiry(max(instance.consumerUserConfig.AckWait/pullTimeoutDivider, minPullExpiryPinnedTTL)), jetstream.PullPriorityGroup(priorityGroupName))
+	instance.consumerConsumeContext, err = instance.consumer.Consume(instance.consumerCallback, consumePullOpts...)
 	if err != nil {
 		log.Printf("Error starting to consume on my consumer: %v\n", err)
 		return
