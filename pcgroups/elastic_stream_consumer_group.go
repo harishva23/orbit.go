@@ -256,7 +256,7 @@ func CreateElastic(ctx context.Context, js jetstream.JetStream, streamName strin
 	// The consumer group's stream will have the same number of replicas and storage as the source stream
 	// Would people want an override for this?
 	replicas := streamInfo.Config.Replicas
-	storage := streamInfo.Config.Storage
+	storage := jetstream.MemoryStorage
 
 	kv, err := js.KeyValue(ctx, kvElasticBucketName)
 	if err != nil {
