@@ -324,7 +324,7 @@ func CreateElastic(ctx context.Context, js jetstream.JetStream, streamName strin
 	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:        composeCGSName(streamName, consumerGroupName),
 		Retention:   jetstream.WorkQueuePolicy,
-		Replicas:    replicas,
+		Replicas:    1,
 		Storage:     storage,
 		MaxMsgs:     maxBufferedMessages,
 		MaxBytes:    maxBufferedBytes,
